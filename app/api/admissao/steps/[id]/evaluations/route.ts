@@ -6,15 +6,20 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
-    const evaluations = db
-      .prepare(
-        'SELECT * FROM step_evaluations WHERE step_id = ? ORDER BY order_index ASC'
-      )
-      .all(Number(resolvedParams.id))
+    
+    const { data: evaluations, error } = await supabase
+      .from('step_evaluations')
+      .select('*')
+      .eq('step_id', Number(resolvedParams.id))
+      .order('created_at', { ascending: true })
 
-    return NextResponse.json(evaluations)
+    if (error) {
+      throw error
+    }
+
+    return NextResponse.json(evaluations || [])
   } catch (error) {
     console.error('Error fetching evaluations:', error)
     return NextResponse.json(
@@ -29,7 +34,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
     const body = await request.json()
 
@@ -52,27 +57,25 @@ export async function POST(
       )
     }
 
-    const result = db
-      .prepare(
-        `INSERT INTO step_evaluations (step_id, name, description, type, location, date, instructions, duration_minutes, is_required, order_index)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        Number(resolvedParams.id),
+    // Mapear campos: type -> evaluation_type, duration_minutes -> time_limit_minutes
+    const { data: evaluation, error } = await supabase
+      .from('step_evaluations')
+      .insert({
+        step_id: Number(resolvedParams.id),
         name,
-        description || null,
-        type,
-        location || null,
-        date || null,
-        instructions || null,
-        duration_minutes || null,
-        is_required !== undefined ? (is_required ? 1 : 0) : 1,
-        order_index || 0
-      )
+        description: description || null,
+        evaluation_type: type,
+        location: location || null,
+        date: date || null,
+        instructions: instructions || null,
+        time_limit_minutes: duration_minutes || null
+      })
+      .select()
+      .single()
 
-    const evaluation = db
-      .prepare('SELECT * FROM step_evaluations WHERE id = ?')
-      .get(result.lastInsertRowid)
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json(evaluation, { status: 201 })
   } catch (error) {
@@ -83,4 +86,3 @@ export async function POST(
     )
   }
 }
-

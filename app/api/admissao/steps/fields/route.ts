@@ -3,7 +3,7 @@ import { getDatabase } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const searchParams = request.nextUrl.searchParams
     const stepId = searchParams.get('step_id')
 
@@ -14,12 +14,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const fields = db
-      .prepare('SELECT * FROM step_fields WHERE step_id = ? ORDER BY order_index ASC')
-      .all(Number(stepId))
+    const { data: fields, error } = await supabase
+      .from('step_fields')
+      .select('*')
+      .eq('step_id', Number(stepId))
+      .order('order_index', { ascending: true })
+
+    if (error) {
+      throw error
+    }
 
     // Parse JSON fields
-    const parsedFields = fields.map((field: any) => ({
+    const parsedFields = (fields || []).map((field: any) => ({
       ...field,
       options: field.options ? JSON.parse(field.options) : null,
       validation_rules: field.validation_rules ? JSON.parse(field.validation_rules) : null,
@@ -37,7 +43,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const body = await request.json()
 
     const { step_id, field_name, field_label, field_type, is_required, options, validation_rules, order_index } = body
@@ -49,24 +55,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = db
-      .prepare(
-        'INSERT INTO step_fields (step_id, field_name, field_label, field_type, is_required, options, validation_rules, order_index) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-      )
-      .run(
+    const { data: field, error } = await supabase
+      .from('step_fields')
+      .insert({
         step_id,
         field_name,
         field_label,
         field_type,
-        is_required ? 1 : 0,
-        options ? JSON.stringify(options) : null,
-        validation_rules ? JSON.stringify(validation_rules) : null,
+        is_required: is_required !== false,
+        options: options ? JSON.stringify(options) : null,
+        validation_rules: validation_rules ? JSON.stringify(validation_rules) : null,
         order_index
-      )
+      })
+      .select()
+      .single()
 
-    const field = db
-      .prepare('SELECT * FROM step_fields WHERE id = ?')
-      .get(result.lastInsertRowid) as any
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json(field, { status: 201 })
   } catch (error) {
@@ -77,4 +83,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

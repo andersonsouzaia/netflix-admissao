@@ -3,29 +3,30 @@ import { getDatabase } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const searchParams = request.nextUrl.searchParams
     const type = searchParams.get('type')
     const modality = searchParams.get('modality')
 
-    let query = 'SELECT * FROM courses WHERE 1=1'
-    const params: any[] = []
+    let query = supabase.from('courses').select('*')
 
     if (type) {
-      query += ' AND type = ?'
-      params.push(type)
+      query = query.eq('type', type)
     }
 
     if (modality) {
-      query += ' AND modality = ?'
-      params.push(modality)
+      query = query.eq('modality', modality)
     }
 
-    query += ' ORDER BY created_at DESC'
+    query = query.order('created_at', { ascending: false })
 
-    const courses = db.prepare(query).all(...params)
+    const { data: courses, error } = await query
 
-    return NextResponse.json(courses)
+    if (error) {
+      throw error
+    }
+
+    return NextResponse.json(courses || [])
   } catch (error) {
     console.error('Error fetching courses:', error)
     return NextResponse.json(
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const body = await request.json()
 
     const { name, description, image_url, type, modality } = body
@@ -49,15 +50,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = db
-      .prepare(
-        'INSERT INTO courses (name, description, image_url, type, modality) VALUES (?, ?, ?, ?, ?)'
-      )
-      .run(name, description || null, image_url || null, type, modality)
+    const { data: course, error } = await supabase
+      .from('courses')
+      .insert({
+        name,
+        description: description || null,
+        image_url: image_url || null,
+        type,
+        modality
+      })
+      .select()
+      .single()
 
-    const course = db
-      .prepare('SELECT * FROM courses WHERE id = ?')
-      .get(result.lastInsertRowid) as any
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json(course, { status: 201 })
   } catch (error) {

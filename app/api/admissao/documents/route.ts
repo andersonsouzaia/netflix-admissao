@@ -18,14 +18,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const db = getDatabase()
+    const supabase = getDatabase()
 
     // Verificar se o documento existe
-    const document = db
-      .prepare('SELECT * FROM step_documents WHERE id = ?')
-      .get(Number(documentId)) as any
+    const { data: document, error: docError } = await supabase
+      .from('step_documents')
+      .select('*')
+      .eq('id', Number(documentId))
+      .single()
 
-    if (!document) {
+    if (docError || !document) {
       return NextResponse.json(
         { error: 'Document not found' },
         { status: 404 }
@@ -68,23 +70,23 @@ export async function POST(request: NextRequest) {
     await writeFile(filePath, buffer)
 
     // Salvar no banco de dados
-    const result = db
-      .prepare(
-        'INSERT INTO registration_documents (registration_id, document_id, file_path, file_name, file_size, mime_type, status) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      )
-      .run(
-        Number(registrationId),
-        Number(documentId),
-        `/uploads/documents/${uniqueName}`,
-        file.name,
-        file.size,
-        file.type,
-        'pending'
-      )
+    const { data: savedDocument, error: saveError } = await supabase
+      .from('registration_documents')
+      .insert({
+        registration_id: Number(registrationId),
+        document_id: Number(documentId),
+        file_path: `/uploads/documents/${uniqueName}`,
+        file_name: file.name,
+        file_size: file.size,
+        mime_type: file.type,
+        status: 'pending'
+      })
+      .select()
+      .single()
 
-    const savedDocument = db
-      .prepare('SELECT * FROM registration_documents WHERE id = ?')
-      .get(result.lastInsertRowid) as any
+    if (saveError) {
+      throw new Error(`Error saving document: ${saveError.message}`)
+    }
 
     return NextResponse.json(savedDocument, { status: 201 })
   } catch (error) {
@@ -95,4 +97,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

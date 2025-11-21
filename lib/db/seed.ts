@@ -1,21 +1,19 @@
 import { getDatabase } from '../db'
 
-export function seedDatabase() {
-  const db = getDatabase()
+export async function seedDatabase() {
+  const supabase = getDatabase()
 
   // Verificar se já existe dados
-  const existingCourses = db.prepare('SELECT COUNT(*) as count FROM courses').get() as { count: number }
-  if (existingCourses.count > 0) {
+  const { count } = await supabase
+    .from('courses')
+    .select('*', { count: 'exact', head: true })
+
+  if (count && count > 0) {
     console.log('Database already seeded')
     return
   }
 
   // Inserir cursos de exemplo
-  const insertCourse = db.prepare(`
-    INSERT INTO courses (name, description, image_url, type, modality)
-    VALUES (?, ?, ?, ?, ?)
-  `)
-
   const courses = [
     {
       name: 'Administração',
@@ -47,190 +45,172 @@ export function seedDatabase() {
     }
   ]
 
-  const courseIds: number[] = []
-  for (const course of courses) {
-    const result = insertCourse.run(
-      course.name,
-      course.description,
-      course.image_url,
-      course.type,
-      course.modality
-    )
-    courseIds.push(Number(result.lastInsertRowid))
+  const { data: insertedCourses, error: coursesError } = await supabase
+    .from('courses')
+    .insert(courses)
+    .select()
+
+  if (coursesError) {
+    throw new Error(`Error inserting courses: ${coursesError.message}`)
   }
+
+  const courseIds = insertedCourses?.map(c => c.id) || []
 
   // Inserir unidades
-  const insertUnit = db.prepare(`
-    INSERT INTO units (course_id, name, description)
-    VALUES (?, ?, ?)
-  `)
-
   const units = [
-    { courseId: courseIds[0], name: 'Unidade Centro', description: 'Campus localizado no centro da cidade' },
-    { courseId: courseIds[0], name: 'Unidade Norte', description: 'Campus localizado na zona norte' },
-    { courseId: courseIds[1], name: 'Unidade Principal', description: 'Campus principal' },
-    { courseId: courseIds[2], name: 'EAD Nacional', description: 'Modalidade EAD para todo o Brasil' },
-    { courseId: courseIds[3], name: 'Online', description: 'Curso totalmente online' }
+    { course_id: courseIds[0], name: 'Unidade Centro', description: 'Campus localizado no centro da cidade' },
+    { course_id: courseIds[0], name: 'Unidade Norte', description: 'Campus localizado na zona norte' },
+    { course_id: courseIds[1], name: 'Unidade Principal', description: 'Campus principal' },
+    { course_id: courseIds[2], name: 'EAD Nacional', description: 'Modalidade EAD para todo o Brasil' },
+    { course_id: courseIds[3], name: 'Online', description: 'Curso totalmente online' }
   ]
 
-  const unitIds: number[] = []
-  for (const unit of units) {
-    const result = insertUnit.run(unit.courseId, unit.name, unit.description)
-    unitIds.push(Number(result.lastInsertRowid))
+  const { data: insertedUnits, error: unitsError } = await supabase
+    .from('units')
+    .insert(units)
+    .select()
+
+  if (unitsError) {
+    throw new Error(`Error inserting units: ${unitsError.message}`)
   }
+
+  const unitIds = insertedUnits?.map(u => u.id) || []
 
   // Inserir processos seletivos
-  const insertProcess = db.prepare(`
-    INSERT INTO admission_processes (unit_id, name, description, is_active)
-    VALUES (?, ?, ?, ?)
-  `)
-
   const processes = [
-    { unitId: unitIds[0], name: 'Vestibular 2025.1', description: 'Processo seletivo para o primeiro semestre de 2025', isActive: true },
-    { unitId: unitIds[0], name: 'ENEM', description: 'Ingresso via nota do ENEM', isActive: true },
-    { unitId: unitIds[1], name: 'Vestibular 2025.1', description: 'Processo seletivo para o primeiro semestre de 2025', isActive: true },
-    { unitId: unitIds[2], name: 'Processo Seletivo', description: 'Processo único de seleção', isActive: true },
-    { unitId: unitIds[3], name: 'Inscrição Online', description: 'Inscrição direta para curso EAD', isActive: true },
-    { unitId: unitIds[4], name: 'Inscrição Livre', description: 'Inscrição aberta para curso livre', isActive: true }
+    { unit_id: unitIds[0], name: 'Vestibular 2025.1', description: 'Processo seletivo para o primeiro semestre de 2025', is_active: true },
+    { unit_id: unitIds[0], name: 'ENEM', description: 'Ingresso via nota do ENEM', is_active: true },
+    { unit_id: unitIds[1], name: 'Vestibular 2025.1', description: 'Processo seletivo para o primeiro semestre de 2025', is_active: true },
+    { unit_id: unitIds[2], name: 'Processo Seletivo', description: 'Processo único de seleção', is_active: true },
+    { unit_id: unitIds[3], name: 'Inscrição Online', description: 'Inscrição direta para curso EAD', is_active: true },
+    { unit_id: unitIds[4], name: 'Inscrição Livre', description: 'Inscrição aberta para curso livre', is_active: true }
   ]
 
-  const processIds: number[] = []
-  for (const process of processes) {
-    const result = insertProcess.run(
-      process.unitId,
-      process.name,
-      process.description,
-      process.isActive ? 1 : 0
-    )
-    processIds.push(Number(result.lastInsertRowid))
+  const { data: insertedProcesses, error: processesError } = await supabase
+    .from('admission_processes')
+    .insert(processes)
+    .select()
+
+  if (processesError) {
+    throw new Error(`Error inserting processes: ${processesError.message}`)
   }
+
+  const processIds = insertedProcesses?.map(p => p.id) || []
 
   // Inserir passos do formulário para o primeiro processo
-  const insertStep = db.prepare(`
-    INSERT INTO admission_steps (process_id, step_type, name, order_index, is_required)
-    VALUES (?, ?, ?, ?, ?)
-  `)
-
   const steps = [
-    { processId: processIds[0], stepType: 'basic_data', name: 'Dados Básicos', orderIndex: 1, isRequired: true },
-    { processId: processIds[0], stepType: 'complementary_data', name: 'Endereço', orderIndex: 2, isRequired: true },
-    { processId: processIds[0], stepType: 'documents', name: 'Documentos', orderIndex: 3, isRequired: true },
-    { processId: processIds[0], stepType: 'evaluation', name: 'Avaliação', orderIndex: 4, isRequired: true },
-    { processId: processIds[0], stepType: 'payment', name: 'Pagamento', orderIndex: 5, isRequired: true },
-    { processId: processIds[0], stepType: 'contract', name: 'Contrato', orderIndex: 6, isRequired: true }
+    { process_id: processIds[0], step_type: 'basic_data', name: 'Dados Básicos', order_index: 1, is_required: true },
+    { process_id: processIds[0], step_type: 'complementary_data', name: 'Endereço', order_index: 2, is_required: true },
+    { process_id: processIds[0], step_type: 'documents', name: 'Documentos', order_index: 3, is_required: true },
+    { process_id: processIds[0], step_type: 'evaluation', name: 'Avaliação', order_index: 4, is_required: true },
+    { process_id: processIds[0], step_type: 'payment', name: 'Pagamento', order_index: 5, is_required: true },
+    { process_id: processIds[0], step_type: 'contract', name: 'Contrato', order_index: 6, is_required: true }
   ]
 
-  const stepIds: number[] = []
-  for (const step of steps) {
-    const result = insertStep.run(
-      step.processId,
-      step.stepType,
-      step.name,
-      step.orderIndex,
-      step.isRequired ? 1 : 0
-    )
-    stepIds.push(Number(result.lastInsertRowid))
+  const { data: insertedSteps, error: stepsError } = await supabase
+    .from('admission_steps')
+    .insert(steps)
+    .select()
+
+  if (stepsError) {
+    throw new Error(`Error inserting steps: ${stepsError.message}`)
   }
+
+  const stepIds = insertedSteps?.map(s => s.id) || []
 
   // Inserir campos personalizados para o passo de dados complementares
-  const insertField = db.prepare(`
-    INSERT INTO step_fields (step_id, field_name, field_label, field_type, is_required, order_index)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `)
-
   const fields = [
-    { stepId: stepIds[1], fieldName: 'phone', fieldLabel: 'Telefone', fieldType: 'text', isRequired: true, orderIndex: 1 },
-    { stepId: stepIds[1], fieldName: 'birth_date', fieldLabel: 'Data de Nascimento', fieldType: 'date', isRequired: true, orderIndex: 2 },
-    { stepId: stepIds[1], fieldName: 'address', fieldLabel: 'Endereço', fieldType: 'textarea', isRequired: true, orderIndex: 3 },
-    { stepId: stepIds[1], fieldName: 'city', fieldLabel: 'Cidade', fieldType: 'text', isRequired: true, orderIndex: 4 },
-    { stepId: stepIds[1], fieldName: 'state', fieldLabel: 'Estado', fieldType: 'select', isRequired: true, orderIndex: 5 }
-  ]
-
-  for (const field of fields) {
-    const options = field.fieldType === 'select' 
-      ? JSON.stringify(['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'])
-      : null
-    insertField.run(
-      field.stepId,
-      field.fieldName,
-      field.fieldLabel,
-      field.fieldType,
-      field.isRequired ? 1 : 0,
-      field.orderIndex
-    )
-  }
-
-  // Inserir documentos exigidos
-  const insertDocument = db.prepare(`
-    INSERT INTO step_documents (step_id, name, description, is_required, accepted_formats, max_size_mb, order_index)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `)
-
-  const documents = [
-    { stepId: stepIds[2], name: 'RG', description: 'Cópia do RG ou CNH', isRequired: true, formats: JSON.stringify(['pdf', 'jpg', 'png']), maxSize: 5, orderIndex: 1 },
-    { stepId: stepIds[2], name: 'CPF', description: 'Cópia do CPF', isRequired: true, formats: JSON.stringify(['pdf', 'jpg', 'png']), maxSize: 5, orderIndex: 2 },
-    { stepId: stepIds[2], name: 'Comprovante de Residência', description: 'Comprovante de endereço recente', isRequired: true, formats: JSON.stringify(['pdf']), maxSize: 10, orderIndex: 3 },
-    { stepId: stepIds[2], name: 'Histórico Escolar', description: 'Histórico escolar do ensino médio', isRequired: true, formats: JSON.stringify(['pdf']), maxSize: 10, orderIndex: 4 }
-  ]
-
-  for (const doc of documents) {
-  insertDocument.run(
-      doc.stepId,
-      doc.name,
-      doc.description,
-      doc.isRequired ? 1 : 0,
-      doc.formats,
-      doc.maxSize,
-      doc.orderIndex
-    )
-  }
-
-  // Inserir avaliação
-  const insertEvaluation = db.prepare(`
-    INSERT INTO step_evaluations (step_id, name, description, evaluation_type, instructions, time_limit_minutes)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `)
-
-  const evaluationResult = insertEvaluation.run(
-    stepIds[3],
-    'Prova de Conhecimentos Gerais',
-    'Avaliação online com questões de múltipla escolha',
-    'online',
-    'A prova tem duração de 120 minutos. Leia atentamente cada questão antes de responder.',
-    120
-  )
-
-  const evaluationId = Number(evaluationResult.lastInsertRowid)
-
-  // Inserir módulos de conteúdo para a avaliação
-  const insertModule = db.prepare(`
-    INSERT INTO step_evaluation_modules (evaluation_id, name, content, order_index)
-    VALUES (?, ?, ?, ?)
-  `)
-
-  const modules = [
-    {
-      evaluationId,
-      name: 'Módulo 1: Língua Portuguesa',
-      content: 'Conteúdo sobre gramática, interpretação de texto e redação.',
-      orderIndex: 1
-    },
-    {
-      evaluationId,
-      name: 'Módulo 2: Matemática',
-      content: 'Conteúdo sobre álgebra, geometria e estatística.',
-      orderIndex: 2
-    },
-    {
-      evaluationId,
-      name: 'Módulo 3: Conhecimentos Gerais',
-      content: 'Conteúdo sobre história, geografia e atualidades.',
-      orderIndex: 3
+    { step_id: stepIds[1], field_name: 'phone', field_label: 'Telefone', field_type: 'text', is_required: true, order_index: 1 },
+    { step_id: stepIds[1], field_name: 'birth_date', field_label: 'Data de Nascimento', field_type: 'date', is_required: true, order_index: 2 },
+    { step_id: stepIds[1], field_name: 'address', field_label: 'Endereço', field_type: 'textarea', is_required: true, order_index: 3 },
+    { step_id: stepIds[1], field_name: 'city', field_label: 'Cidade', field_type: 'text', is_required: true, order_index: 4 },
+    { 
+      step_id: stepIds[1], 
+      field_name: 'state', 
+      field_label: 'Estado', 
+      field_type: 'select', 
+      is_required: true, 
+      order_index: 5,
+      options: JSON.stringify(['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'])
     }
   ]
 
-  for (const module of modules) {
-    insertModule.run(module.evaluationId, module.name, module.content, module.orderIndex)
+  const { error: fieldsError } = await supabase
+    .from('step_fields')
+    .insert(fields)
+
+  if (fieldsError) {
+    throw new Error(`Error inserting fields: ${fieldsError.message}`)
+  }
+
+  // Inserir documentos exigidos
+  const documents = [
+    { step_id: stepIds[2], name: 'RG', description: 'Cópia do RG ou CNH', is_required: true, accepted_formats: JSON.stringify(['pdf', 'jpg', 'png']), max_size_mb: 5, order_index: 1 },
+    { step_id: stepIds[2], name: 'CPF', description: 'Cópia do CPF', is_required: true, accepted_formats: JSON.stringify(['pdf', 'jpg', 'png']), max_size_mb: 5, order_index: 2 },
+    { step_id: stepIds[2], name: 'Comprovante de Residência', description: 'Comprovante de endereço recente', is_required: true, accepted_formats: JSON.stringify(['pdf']), max_size_mb: 10, order_index: 3 },
+    { step_id: stepIds[2], name: 'Histórico Escolar', description: 'Histórico escolar do ensino médio', is_required: true, accepted_formats: JSON.stringify(['pdf']), max_size_mb: 10, order_index: 4 }
+  ]
+
+  const { error: documentsError } = await supabase
+    .from('step_documents')
+    .insert(documents)
+
+  if (documentsError) {
+    throw new Error(`Error inserting documents: ${documentsError.message}`)
+  }
+
+  // Inserir avaliação
+  const { data: insertedEvaluation, error: evaluationError } = await supabase
+    .from('step_evaluations')
+    .insert({
+      step_id: stepIds[3],
+      name: 'Prova de Conhecimentos Gerais',
+      description: 'Avaliação online com questões de múltipla escolha',
+      evaluation_type: 'online',
+      instructions: 'A prova tem duração de 120 minutos. Leia atentamente cada questão antes de responder.',
+      time_limit_minutes: 120
+    })
+    .select()
+    .single()
+
+  if (evaluationError) {
+    throw new Error(`Error inserting evaluation: ${evaluationError.message}`)
+  }
+
+  const evaluationId = insertedEvaluation?.id
+
+  if (!evaluationId) {
+    throw new Error('Failed to get evaluation ID')
+  }
+
+  // Inserir módulos de conteúdo para a avaliação
+  const modules = [
+    {
+      evaluation_id: evaluationId,
+      name: 'Módulo 1: Língua Portuguesa',
+      content: 'Conteúdo sobre gramática, interpretação de texto e redação.',
+      order_index: 1
+    },
+    {
+      evaluation_id: evaluationId,
+      name: 'Módulo 2: Matemática',
+      content: 'Conteúdo sobre álgebra, geometria e estatística.',
+      order_index: 2
+    },
+    {
+      evaluation_id: evaluationId,
+      name: 'Módulo 3: Conhecimentos Gerais',
+      content: 'Conteúdo sobre história, geografia e atualidades.',
+      order_index: 3
+    }
+  ]
+
+  const { error: modulesError } = await supabase
+    .from('step_evaluation_modules')
+    .insert(modules)
+
+  if (modulesError) {
+    throw new Error(`Error inserting modules: ${modulesError.message}`)
   }
 
   console.log('Database seeded successfully')

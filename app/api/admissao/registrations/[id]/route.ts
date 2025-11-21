@@ -6,13 +6,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
-    const registration = db
-      .prepare('SELECT * FROM registrations WHERE id = ?')
-      .get(Number(resolvedParams.id)) as any
+    
+    const { data: registration, error } = await supabase
+      .from('registrations')
+      .select('*')
+      .eq('id', Number(resolvedParams.id))
+      .single()
 
-    if (!registration) {
+    if (error || !registration) {
       return NextResponse.json(
         { error: 'Registration not found' },
         { status: 404 }
@@ -34,46 +37,38 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
     const body = await request.json()
 
     const { status, current_step_id, submitted_at } = body
 
-    const updates: string[] = []
-    const values: any[] = []
+    const updates: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    }
 
     if (status !== undefined) {
-      updates.push('status = ?')
-      values.push(status)
+      updates.status = status
     }
 
     if (current_step_id !== undefined) {
-      updates.push('current_step_id = ?')
-      values.push(current_step_id)
+      updates.current_step_id = current_step_id
     }
 
     if (submitted_at !== undefined) {
-      updates.push('submitted_at = ?')
-      values.push(submitted_at)
+      updates.submitted_at = submitted_at
     }
 
-    if (updates.length === 0) {
-      return NextResponse.json(
-        { error: 'No fields to update' },
-        { status: 400 }
-      )
+    const { data: registration, error } = await supabase
+      .from('registrations')
+      .update(updates)
+      .eq('id', Number(resolvedParams.id))
+      .select()
+      .single()
+
+    if (error) {
+      throw error
     }
-
-    updates.push('updated_at = CURRENT_TIMESTAMP')
-    values.push(Number(resolvedParams.id))
-
-    const query = `UPDATE registrations SET ${updates.join(', ')} WHERE id = ?`
-    db.prepare(query).run(...values)
-
-    const registration = db
-      .prepare('SELECT * FROM registrations WHERE id = ?')
-      .get(Number(resolvedParams.id)) as any
 
     return NextResponse.json(registration)
   } catch (error) {

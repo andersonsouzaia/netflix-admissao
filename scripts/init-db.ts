@@ -1,14 +1,19 @@
+import { config } from 'dotenv'
+import { resolve } from 'path'
 import { getDatabase } from '../lib/db'
 import { seedDatabase } from '../lib/db/seed'
+
+// Carregar variáveis de ambiente
+config({ path: resolve(process.cwd(), '.env.local') })
 
 async function initDatabase() {
   try {
     console.log('Initializing database...')
-    const db = getDatabase()
+    const supabase = getDatabase()
     console.log('Database connection established')
     
     console.log('Seeding database...')
-    seedDatabase()
+    await seedDatabase()
     console.log('Database initialized and seeded successfully!')
     
     process.exit(0)
@@ -19,4 +24,3 @@ async function initDatabase() {
 }
 
 initDatabase()
-

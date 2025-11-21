@@ -3,7 +3,7 @@ import { getDatabase } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const searchParams = request.nextUrl.searchParams
     const processId = searchParams.get('process_id')
 
@@ -14,11 +14,17 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const steps = db
-      .prepare('SELECT * FROM admission_steps WHERE process_id = ? ORDER BY order_index ASC')
-      .all(Number(processId))
+    const { data: steps, error } = await supabase
+      .from('admission_steps')
+      .select('*')
+      .eq('process_id', Number(processId))
+      .order('order_index', { ascending: true })
 
-    return NextResponse.json(steps)
+    if (error) {
+      throw error
+    }
+
+    return NextResponse.json(steps || [])
   } catch (error) {
     console.error('Error fetching steps:', error)
     return NextResponse.json(
@@ -30,7 +36,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const body = await request.json()
 
     const { process_id, step_type, name, order_index, is_required, config } = body
@@ -42,22 +48,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = db
-      .prepare(
-        'INSERT INTO admission_steps (process_id, step_type, name, order_index, is_required, config) VALUES (?, ?, ?, ?, ?, ?)'
-      )
-      .run(
+    const { data: step, error } = await supabase
+      .from('admission_steps')
+      .insert({
         process_id,
         step_type,
         name,
         order_index,
-        is_required !== false ? 1 : 0,
-        config ? JSON.stringify(config) : null
-      )
+        is_required: is_required !== false,
+        config: config ? JSON.stringify(config) : null
+      })
+      .select()
+      .single()
 
-    const step = db
-      .prepare('SELECT * FROM admission_steps WHERE id = ?')
-      .get(result.lastInsertRowid) as any
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json(step, { status: 201 })
   } catch (error) {

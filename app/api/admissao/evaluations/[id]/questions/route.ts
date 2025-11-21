@@ -6,14 +6,21 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
-    const questions = db
-      .prepare('SELECT * FROM step_evaluation_questions WHERE evaluation_id = ? ORDER BY order_index ASC')
-      .all(Number(resolvedParams.id))
+    
+    const { data: questions, error } = await supabase
+      .from('step_evaluation_questions')
+      .select('*')
+      .eq('evaluation_id', Number(resolvedParams.id))
+      .order('order_index', { ascending: true })
+
+    if (error) {
+      throw error
+    }
 
     // Parse JSON fields
-    const parsedQuestions = questions.map((question: any) => ({
+    const parsedQuestions = (questions || []).map((question: any) => ({
       ...question,
       options: question.options ? JSON.parse(question.options) : null,
       correct_answer: question.correct_answer ? JSON.parse(question.correct_answer) : null,
@@ -34,7 +41,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
     const body = await request.json()
 
@@ -47,23 +54,23 @@ export async function POST(
       )
     }
 
-    const result = db
-      .prepare(
-        'INSERT INTO step_evaluation_questions (evaluation_id, question_text, question_type, options, correct_answer, points, order_index) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      )
-      .run(
-        Number(resolvedParams.id),
+    const { data: question, error } = await supabase
+      .from('step_evaluation_questions')
+      .insert({
+        evaluation_id: Number(resolvedParams.id),
         question_text,
         question_type,
-        options ? JSON.stringify(options) : null,
-        correct_answer ? JSON.stringify(correct_answer) : null,
-        points || 1.0,
+        options: options ? JSON.stringify(options) : null,
+        correct_answer: correct_answer ? JSON.stringify(correct_answer) : null,
+        points: points || 1.0,
         order_index
-      )
+      })
+      .select()
+      .single()
 
-    const question = db
-      .prepare('SELECT * FROM step_evaluation_questions WHERE id = ?')
-      .get(result.lastInsertRowid) as any
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json(question, { status: 201 })
   } catch (error) {
@@ -74,4 +81,3 @@ export async function POST(
     )
   }
 }
-

@@ -3,7 +3,7 @@ import { getDatabase } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const searchParams = request.nextUrl.searchParams
     const stepId = searchParams.get('step_id')
 
@@ -14,12 +14,18 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const documents = db
-      .prepare('SELECT * FROM step_documents WHERE step_id = ? ORDER BY order_index ASC')
-      .all(Number(stepId))
+    const { data: documents, error } = await supabase
+      .from('step_documents')
+      .select('*')
+      .eq('step_id', Number(stepId))
+      .order('order_index', { ascending: true })
+
+    if (error) {
+      throw error
+    }
 
     // Parse JSON fields
-    const parsedDocuments = documents.map((doc: any) => ({
+    const parsedDocuments = (documents || []).map((doc: any) => ({
       ...doc,
       accepted_formats: doc.accepted_formats ? JSON.parse(doc.accepted_formats) : [],
     }))
@@ -36,7 +42,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const body = await request.json()
 
     const { step_id, name, description, is_required, accepted_formats, max_size_mb, order_index } = body
@@ -48,23 +54,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = db
-      .prepare(
-        'INSERT INTO step_documents (step_id, name, description, is_required, accepted_formats, max_size_mb, order_index) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      )
-      .run(
+    const { data: document, error } = await supabase
+      .from('step_documents')
+      .insert({
         step_id,
         name,
-        description || null,
-        is_required !== false ? 1 : 0,
-        accepted_formats ? JSON.stringify(accepted_formats) : null,
-        max_size_mb || 10,
+        description: description || null,
+        is_required: is_required !== false,
+        accepted_formats: accepted_formats ? JSON.stringify(accepted_formats) : null,
+        max_size_mb: max_size_mb || 10,
         order_index
-      )
+      })
+      .select()
+      .single()
 
-    const document = db
-      .prepare('SELECT * FROM step_documents WHERE id = ?')
-      .get(result.lastInsertRowid) as any
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json(document, { status: 201 })
   } catch (error) {
@@ -75,4 +81,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

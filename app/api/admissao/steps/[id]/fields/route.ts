@@ -6,16 +6,21 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
-    const fields = db
-      .prepare(
-        'SELECT * FROM step_fields WHERE step_id = ? ORDER BY order_index ASC'
-      )
-      .all(Number(resolvedParams.id))
+    
+    const { data: fields, error } = await supabase
+      .from('step_fields')
+      .select('*')
+      .eq('step_id', Number(resolvedParams.id))
+      .order('order_index', { ascending: true })
+
+    if (error) {
+      throw error
+    }
 
     // Parse JSON fields
-    const parsedFields = fields.map((field: any) => {
+    const parsedFields = (fields || []).map((field: any) => {
       if (field.options) {
         try {
           field.options = JSON.parse(field.options)
@@ -48,7 +53,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
     const body = await request.json()
 
@@ -61,25 +66,24 @@ export async function POST(
       )
     }
 
-    const result = db
-      .prepare(
-        `INSERT INTO step_fields (step_id, name, label, type, is_required, options, validation_rules, order_index)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        Number(resolvedParams.id),
-        name,
-        label,
-        type,
-        is_required !== undefined ? (is_required ? 1 : 0) : 0,
-        options ? JSON.stringify(options) : null,
-        validation_rules ? JSON.stringify(validation_rules) : null,
-        order_index || 0
-      )
+    const { data: field, error } = await supabase
+      .from('step_fields')
+      .insert({
+        step_id: Number(resolvedParams.id),
+        field_name: name,
+        field_label: label,
+        field_type: type,
+        is_required: is_required !== undefined ? is_required : false,
+        options: options ? JSON.stringify(options) : null,
+        validation_rules: validation_rules ? JSON.stringify(validation_rules) : null,
+        order_index: order_index || 0
+      })
+      .select()
+      .single()
 
-    const field = db
-      .prepare('SELECT * FROM step_fields WHERE id = ?')
-      .get(result.lastInsertRowid)
+    if (error) {
+      throw error
+    }
 
     // Parse JSON fields
     if (field.options) {
@@ -106,4 +110,3 @@ export async function POST(
     )
   }
 }
-

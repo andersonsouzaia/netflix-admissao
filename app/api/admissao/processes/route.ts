@@ -3,29 +3,30 @@ import { getDatabase } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const searchParams = request.nextUrl.searchParams
     const unitId = searchParams.get('unit_id')
     const isActive = searchParams.get('is_active')
 
-    let query = 'SELECT * FROM admission_processes WHERE 1=1'
-    const params: any[] = []
+    let query = supabase.from('admission_processes').select('*')
 
     if (unitId) {
-      query += ' AND unit_id = ?'
-      params.push(Number(unitId))
+      query = query.eq('unit_id', Number(unitId))
     }
 
     if (isActive !== null) {
-      query += ' AND is_active = ?'
-      params.push(isActive === 'true' ? 1 : 0)
+      query = query.eq('is_active', isActive === 'true')
     }
 
-    query += ' ORDER BY created_at DESC'
+    query = query.order('created_at', { ascending: false })
 
-    const processes = db.prepare(query).all(...params)
+    const { data: processes, error } = await query
 
-    return NextResponse.json(processes)
+    if (error) {
+      throw error
+    }
+
+    return NextResponse.json(processes || [])
   } catch (error) {
     console.error('Error fetching processes:', error)
     return NextResponse.json(
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const body = await request.json()
 
     const { unit_id, name, description, is_active } = body
@@ -49,15 +50,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = db
-      .prepare(
-        'INSERT INTO admission_processes (unit_id, name, description, is_active) VALUES (?, ?, ?, ?)'
-      )
-      .run(unit_id, name, description || null, is_active !== false ? 1 : 0)
+    const { data: process, error } = await supabase
+      .from('admission_processes')
+      .insert({
+        unit_id,
+        name,
+        description: description || null,
+        is_active: is_active !== false
+      })
+      .select()
+      .single()
 
-    const process = db
-      .prepare('SELECT * FROM admission_processes WHERE id = ?')
-      .get(result.lastInsertRowid) as any
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json(process, { status: 201 })
   } catch (error) {

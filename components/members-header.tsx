@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Search, Bell, Settings, User, FileText } from 'lucide-react'
+import { Search, Bell, Settings, User, FileText, Award } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ThemeSwitcher } from '@/components/theme-switcher'
@@ -72,6 +72,9 @@ export function MembersHeader() {
               <Link href="/progress" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
                 Meu Progresso
               </Link>
+              <Link href="/certificados" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                Certificados
+              </Link>
             </nav>
           </div>
 
@@ -110,6 +113,12 @@ export function MembersHeader() {
                   <Link href="/admissao/minhas" className="flex items-center gap-2 cursor-pointer">
                     <FileText className="h-4 w-4" />
                     Minhas Admissões
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/certificados" className="flex items-center gap-2 cursor-pointer">
+                    <Award className="h-4 w-4" />
+                    Certificados
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

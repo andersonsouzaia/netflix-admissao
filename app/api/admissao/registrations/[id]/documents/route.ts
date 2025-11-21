@@ -6,19 +6,42 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
-    const documents = db
-      .prepare(`
-        SELECT rd.*, sd.name as document_name, sd.description as document_description
-        FROM registration_documents rd
-        JOIN step_documents sd ON rd.document_id = sd.id
-        WHERE rd.registration_id = ?
-        ORDER BY rd.uploaded_at DESC
-      `)
-      .all(Number(resolvedParams.id))
+    
+    // Buscar documentos da inscrição
+    const { data: documents, error: docsError } = await supabase
+      .from('registration_documents')
+      .select('*')
+      .eq('registration_id', Number(resolvedParams.id))
+      .order('uploaded_at', { ascending: false })
 
-    return NextResponse.json(documents)
+    if (docsError) {
+      throw docsError
+    }
+
+    // Buscar informações dos documentos (step_documents)
+    if (documents && documents.length > 0) {
+      const documentIds = documents.map(doc => doc.document_id)
+      const { data: stepDocuments } = await supabase
+        .from('step_documents')
+        .select('id, name, description')
+        .in('id', documentIds)
+
+      // Combinar dados
+      const documentsWithInfo = documents.map(doc => {
+        const stepDoc = stepDocuments?.find(sd => sd.id === doc.document_id)
+        return {
+          ...doc,
+          document_name: stepDoc?.name,
+          document_description: stepDoc?.description
+        }
+      })
+
+      return NextResponse.json(documentsWithInfo)
+    }
+
+    return NextResponse.json([])
   } catch (error) {
     console.error('Error fetching registration documents:', error)
     return NextResponse.json(
@@ -33,7 +56,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
     const body = await request.json()
     const searchParams = request.nextUrl.searchParams
@@ -55,18 +78,21 @@ export async function PUT(
       )
     }
 
-    db.prepare(
-      'UPDATE registration_documents SET status = ?, rejection_reason = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ? AND registration_id = ?'
-    ).run(
-      status,
-      rejection_reason || null,
-      Number(documentId),
-      Number(resolvedParams.id)
-    )
+    const { data: document, error } = await supabase
+      .from('registration_documents')
+      .update({
+        status,
+        rejection_reason: rejection_reason || null,
+        reviewed_at: new Date().toISOString()
+      })
+      .eq('id', Number(documentId))
+      .eq('registration_id', Number(resolvedParams.id))
+      .select()
+      .single()
 
-    const document = db
-      .prepare('SELECT * FROM registration_documents WHERE id = ? AND registration_id = ?')
-      .get(Number(documentId), Number(resolvedParams.id)) as any
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json(document)
   } catch (error) {

@@ -6,13 +6,16 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
-    const process = db
-      .prepare('SELECT * FROM admission_processes WHERE id = ?')
-      .get(Number(resolvedParams.id)) as any
+    
+    const { data: process, error } = await supabase
+      .from('admission_processes')
+      .select('*')
+      .eq('id', Number(resolvedParams.id))
+      .single()
 
-    if (!process) {
+    if (error || !process) {
       return NextResponse.json(
         { error: 'Process not found' },
         { status: 404 }

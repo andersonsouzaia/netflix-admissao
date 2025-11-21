@@ -6,15 +6,20 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
-    const modules = db
-      .prepare(
-        'SELECT * FROM step_evaluation_modules WHERE evaluation_id = ? ORDER BY order_index ASC'
-      )
-      .all(Number(resolvedParams.id))
+    
+    const { data: modules, error } = await supabase
+      .from('step_evaluation_modules')
+      .select('*')
+      .eq('evaluation_id', Number(resolvedParams.id))
+      .order('order_index', { ascending: true })
 
-    return NextResponse.json(modules)
+    if (error) {
+      throw error
+    }
+
+    return NextResponse.json(modules || [])
   } catch (error) {
     console.error('Error fetching evaluation modules:', error)
     return NextResponse.json(
@@ -29,7 +34,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
     const body = await request.json()
 
@@ -42,16 +47,20 @@ export async function POST(
       )
     }
 
-    const result = db
-      .prepare(
-        `INSERT INTO step_evaluation_modules (evaluation_id, name, content, order_index)
-         VALUES (?, ?, ?, ?)`
-      )
-      .run(Number(resolvedParams.id), name, content || null, order_index || 0)
+    const { data: module, error } = await supabase
+      .from('step_evaluation_modules')
+      .insert({
+        evaluation_id: Number(resolvedParams.id),
+        name,
+        content: content || null,
+        order_index: order_index || 0
+      })
+      .select()
+      .single()
 
-    const module = db
-      .prepare('SELECT * FROM step_evaluation_modules WHERE id = ?')
-      .get(result.lastInsertRowid)
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json(module, { status: 201 })
   } catch (error) {
@@ -62,4 +71,3 @@ export async function POST(
     )
   }
 }
-

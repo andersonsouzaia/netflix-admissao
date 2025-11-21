@@ -6,16 +6,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
-    // Next.js 15+ pode passar params como Promise
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
     const courseId = Number(resolvedParams.id)
     
-    const course = db
-      .prepare('SELECT * FROM courses WHERE id = ?')
-      .get(courseId) as any
+    const { data: course, error } = await supabase
+      .from('courses')
+      .select('*')
+      .eq('id', courseId)
+      .single()
 
-    if (!course) {
+    if (error || !course) {
       return NextResponse.json(
         { error: 'Course not found' },
         { status: 404 }
@@ -37,26 +38,29 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
     const body = await request.json()
 
     const { name, description, image_url, type, modality } = body
 
-    db.prepare(
-      'UPDATE courses SET name = ?, description = ?, image_url = ?, type = ?, modality = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-    ).run(
-      name || null,
-      description || null,
-      image_url || null,
-      type || null,
-      modality || null,
-      Number(resolvedParams.id)
-    )
+    const { data: course, error } = await supabase
+      .from('courses')
+      .update({
+        name: name || null,
+        description: description || null,
+        image_url: image_url || null,
+        type: type || null,
+        modality: modality || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', Number(resolvedParams.id))
+      .select()
+      .single()
 
-    const course = db
-      .prepare('SELECT * FROM courses WHERE id = ?')
-      .get(Number(resolvedParams.id)) as any
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json(course)
   } catch (error) {
@@ -73,9 +77,17 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
-    db.prepare('DELETE FROM courses WHERE id = ?').run(Number(resolvedParams.id))
+    
+    const { error } = await supabase
+      .from('courses')
+      .delete()
+      .eq('id', Number(resolvedParams.id))
+
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

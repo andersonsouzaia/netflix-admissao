@@ -3,29 +3,30 @@ import { getDatabase } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const searchParams = request.nextUrl.searchParams
     const userId = searchParams.get('user_id')
     const processId = searchParams.get('process_id')
 
-    let query = 'SELECT * FROM registrations WHERE 1=1'
-    const params: any[] = []
+    let query = supabase.from('registrations').select('*')
 
     if (userId) {
-      query += ' AND user_id = ?'
-      params.push(userId)
+      query = query.eq('user_id', userId)
     }
 
     if (processId) {
-      query += ' AND process_id = ?'
-      params.push(Number(processId))
+      query = query.eq('process_id', Number(processId))
     }
 
-    query += ' ORDER BY created_at DESC'
+    query = query.order('created_at', { ascending: false })
 
-    const registrations = db.prepare(query).all(...params)
+    const { data: registrations, error } = await query
 
-    return NextResponse.json(registrations)
+    if (error) {
+      throw error
+    }
+
+    return NextResponse.json(registrations || [])
   } catch (error) {
     console.error('Error fetching registrations:', error)
     return NextResponse.json(
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const body = await request.json()
 
     const { process_id, user_id, current_step_id } = body
@@ -50,28 +51,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se já existe uma inscrição para este processo e usuário
-    const existing = db
-      .prepare('SELECT * FROM registrations WHERE process_id = ? AND user_id = ?')
-      .get(process_id, user_id) as any
+    const { data: existing } = await supabase
+      .from('registrations')
+      .select('*')
+      .eq('process_id', process_id)
+      .eq('user_id', user_id)
+      .single()
 
     if (existing) {
       return NextResponse.json(existing)
     }
 
-    const result = db
-      .prepare(
-        'INSERT INTO registrations (process_id, user_id, current_step_id, status) VALUES (?, ?, ?, ?)'
-      )
-      .run(
+    const { data: registration, error } = await supabase
+      .from('registrations')
+      .insert({
         process_id,
         user_id,
-        current_step_id || null,
-        'in_progress'
-      )
+        current_step_id: current_step_id || null,
+        status: 'in_progress'
+      })
+      .select()
+      .single()
 
-    const registration = db
-      .prepare('SELECT * FROM registrations WHERE id = ?')
-      .get(result.lastInsertRowid) as any
+    if (error) {
+      throw error
+    }
 
     return NextResponse.json(registration, { status: 201 })
   } catch (error) {

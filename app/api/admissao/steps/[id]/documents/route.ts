@@ -6,21 +6,26 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
-    const documents = db
-      .prepare(
-        'SELECT * FROM step_documents WHERE step_id = ? ORDER BY order_index ASC'
-      )
-      .all(Number(resolvedParams.id))
+    
+    const { data: documents, error } = await supabase
+      .from('step_documents')
+      .select('*')
+      .eq('step_id', Number(resolvedParams.id))
+      .order('order_index', { ascending: true })
+
+    if (error) {
+      throw error
+    }
 
     // Parse JSON fields
-    const parsedDocuments = documents.map((doc: any) => {
-      if (doc.accepted_types) {
+    const parsedDocuments = (documents || []).map((doc: any) => {
+      if (doc.accepted_formats) {
         try {
-          doc.accepted_types = JSON.parse(doc.accepted_types)
+          doc.accepted_formats = JSON.parse(doc.accepted_formats)
         } catch (e) {
-          doc.accepted_types = []
+          doc.accepted_formats = []
         }
       }
       return doc
@@ -41,7 +46,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
     const body = await request.json()
 
@@ -54,31 +59,30 @@ export async function POST(
       )
     }
 
-    const result = db
-      .prepare(
-        `INSERT INTO step_documents (step_id, name, description, is_required, accepted_types, max_size_mb, order_index)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        Number(resolvedParams.id),
+    const { data: document, error } = await supabase
+      .from('step_documents')
+      .insert({
+        step_id: Number(resolvedParams.id),
         name,
-        description || null,
-        is_required !== undefined ? (is_required ? 1 : 0) : 1,
-        accepted_types ? JSON.stringify(accepted_types) : null,
-        max_size_mb || 10,
-        order_index || 0
-      )
+        description: description || null,
+        is_required: is_required !== undefined ? is_required : true,
+        accepted_formats: accepted_types ? JSON.stringify(accepted_types) : null,
+        max_size_mb: max_size_mb || 10,
+        order_index: order_index || 0
+      })
+      .select()
+      .single()
 
-    const document = db
-      .prepare('SELECT * FROM step_documents WHERE id = ?')
-      .get(result.lastInsertRowid)
+    if (error) {
+      throw error
+    }
 
     // Parse JSON
-    if (document.accepted_types) {
+    if (document.accepted_formats) {
       try {
-        document.accepted_types = JSON.parse(document.accepted_types)
+        document.accepted_formats = JSON.parse(document.accepted_formats)
       } catch (e) {
-        document.accepted_types = []
+        document.accepted_formats = []
       }
     }
 
@@ -91,4 +95,3 @@ export async function POST(
     )
   }
 }
-

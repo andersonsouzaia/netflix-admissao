@@ -6,22 +6,27 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
     const searchParams = request.nextUrl.searchParams
     const stepId = searchParams.get('step_id')
 
-    let query = 'SELECT * FROM registration_data WHERE registration_id = ?'
-    const queryParams: any[] = [Number(resolvedParams.id)]
+    let query = supabase
+      .from('registration_data')
+      .select('*')
+      .eq('registration_id', Number(resolvedParams.id))
 
     if (stepId) {
-      query += ' AND step_id = ?'
-      queryParams.push(Number(stepId))
+      query = query.eq('step_id', Number(stepId))
     }
 
-    const data = db.prepare(query).all(...queryParams)
+    const { data, error } = await query
 
-    return NextResponse.json(data)
+    if (error) {
+      throw error
+    }
+
+    return NextResponse.json(data || [])
   } catch (error) {
     console.error('Error fetching registration data:', error)
     return NextResponse.json(
@@ -36,7 +41,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const db = getDatabase()
+    const supabase = getDatabase()
     const resolvedParams = params instanceof Promise ? await params : params
     const body = await request.json()
 
@@ -50,32 +55,31 @@ export async function POST(
     }
 
     // Deletar dados existentes para este passo
-    db.prepare('DELETE FROM registration_data WHERE registration_id = ? AND step_id = ?')
-      .run(Number(resolvedParams.id), step_id)
+    await supabase
+      .from('registration_data')
+      .delete()
+      .eq('registration_id', Number(resolvedParams.id))
+      .eq('step_id', step_id)
+
+    // Preparar dados para inserção
+    const dataToInsert = Object.entries(formData).map(([fieldName, fieldValue]) => ({
+      registration_id: Number(resolvedParams.id),
+      step_id,
+      field_name: fieldName,
+      field_value: typeof fieldValue === 'object' ? JSON.stringify(fieldValue) : String(fieldValue)
+    }))
 
     // Inserir novos dados
-    const insertStmt = db.prepare(
-      'INSERT INTO registration_data (registration_id, step_id, field_name, field_value) VALUES (?, ?, ?, ?)'
-    )
+    const { data: savedData, error } = await supabase
+      .from('registration_data')
+      .insert(dataToInsert)
+      .select()
 
-    const transaction = db.transaction((data: Record<string, any>) => {
-      for (const [fieldName, fieldValue] of Object.entries(data)) {
-        insertStmt.run(
-          Number(resolvedParams.id),
-          step_id,
-          fieldName,
-          typeof fieldValue === 'object' ? JSON.stringify(fieldValue) : String(fieldValue)
-        )
-      }
-    })
+    if (error) {
+      throw error
+    }
 
-    transaction(formData)
-
-    const savedData = db
-      .prepare('SELECT * FROM registration_data WHERE registration_id = ? AND step_id = ?')
-      .all(Number(resolvedParams.id), step_id)
-
-    return NextResponse.json(savedData, { status: 201 })
+    return NextResponse.json(savedData || [], { status: 201 })
   } catch (error) {
     console.error('Error saving registration data:', error)
     return NextResponse.json(
