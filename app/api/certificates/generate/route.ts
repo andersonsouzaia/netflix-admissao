@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getDatabase } from '@/lib/db'
 import { generateCertificatePDF, generateCertificateCode } from '@/lib/utils/certificate'
-import { writeFileSync, mkdirSync } from 'fs'
-import { join } from 'path'
 
 // POST - Gerar certificado
 export async function POST(request: NextRequest) {
@@ -45,6 +43,8 @@ export async function POST(request: NextRequest) {
     const certificateCode = generateCertificateCode()
     // Usar a URL base do ambiente ou detectar automaticamente
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
+                    process.env.DEPLOY_PRIME_URL || // Netlify
+                    process.env.URL || // Netlify (alternativa)
                     process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` :
                     'http://localhost:3000'
     const publicUrl = `${baseUrl}/certificados/validar/${certificateCode}`
@@ -65,13 +65,26 @@ export async function POST(request: NextRequest) {
       signatureLine: config?.signature_line,
     })
 
-    // Salvar PDF no sistema de arquivos
-    const uploadsDir = join(process.cwd(), 'uploads', 'certificates')
-    mkdirSync(uploadsDir, { recursive: true })
-    
+    // Upload PDF para Supabase Storage
     const pdfFileName = `certificate-${certificateCode}.pdf`
-    const pdfPath = join(uploadsDir, pdfFileName)
-    writeFileSync(pdfPath, pdfBytes)
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('certificates')
+      .upload(pdfFileName, pdfBytes, {
+        contentType: 'application/pdf',
+        upsert: false,
+      })
+
+    if (uploadError) {
+      console.error('Error uploading PDF to storage:', uploadError)
+      throw new Error(`Failed to upload certificate PDF: ${uploadError.message}`)
+    }
+
+    // Obter URL pública do arquivo
+    const { data: urlData } = supabase.storage
+      .from('certificates')
+      .getPublicUrl(pdfFileName)
+
+    const pdfUrl = urlData?.publicUrl || `/api/certificates/${certificateCode}/download`
 
     // Salvar no banco de dados
     const { data: certificate, error: certError } = await supabase
@@ -84,7 +97,7 @@ export async function POST(request: NextRequest) {
         public_url: publicUrl,
         student_name: studentName,
         course_name: course.name,
-        pdf_path: `/uploads/certificates/${pdfFileName}`
+        pdf_path: pdfUrl
       })
       .select()
       .single()

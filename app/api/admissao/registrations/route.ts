@@ -23,14 +23,24 @@ export async function GET(request: NextRequest) {
     const { data: registrations, error } = await query
 
     if (error) {
-      throw error
+      console.error('Supabase error fetching registrations:', error)
+      return NextResponse.json(
+        { 
+          error: 'Failed to fetch registrations',
+          details: error.message || 'Database error'
+        },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json(registrations || [])
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching registrations:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch registrations' },
+      { 
+        error: 'Failed to fetch registrations',
+        details: error?.message || 'Unknown error'
+      },
       { status: 500 }
     )
   }

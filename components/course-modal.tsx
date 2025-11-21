@@ -2,7 +2,7 @@
 
 import { X, Play, Plus, ThumbsUp, Volume2, VolumeX, Info, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { useState } from 'react'
 import { useContentProgress } from '@/hooks/use-content-progress'
 
@@ -137,6 +137,7 @@ export function CourseModal({ isOpen, onClose, course, similarCourses }: CourseM
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="p-0 bg-background border-none rounded-t-xl overflow-hidden">
+        <DialogTitle className="sr-only">{course.title}</DialogTitle>
         <div className="relative">
           <div className="relative aspect-video w-full rounded-t-xl overflow-hidden">
             <img
