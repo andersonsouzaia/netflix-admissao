@@ -245,17 +245,17 @@ BEGIN
   IF evaluation_id IS NOT NULL THEN
     INSERT INTO step_evaluation_modules (evaluation_id, name, content, order_index)
     SELECT evaluation_id, 'Módulo 1: Língua Portuguesa', 'Conteúdo sobre gramática, interpretação de texto e redação.', 1
-    WHERE NOT EXISTS (SELECT 1 FROM step_evaluation_modules WHERE evaluation_id = evaluation_id AND order_index = 1)
+    WHERE NOT EXISTS (SELECT 1 FROM step_evaluation_modules sem WHERE sem.evaluation_id = evaluation_id AND sem.order_index = 1)
     ON CONFLICT DO NOTHING;
 
     INSERT INTO step_evaluation_modules (evaluation_id, name, content, order_index)
     SELECT evaluation_id, 'Módulo 2: Matemática', 'Conteúdo sobre álgebra, geometria e estatística.', 2
-    WHERE NOT EXISTS (SELECT 1 FROM step_evaluation_modules WHERE evaluation_id = evaluation_id AND order_index = 2)
+    WHERE NOT EXISTS (SELECT 1 FROM step_evaluation_modules sem WHERE sem.evaluation_id = evaluation_id AND sem.order_index = 2)
     ON CONFLICT DO NOTHING;
 
     INSERT INTO step_evaluation_modules (evaluation_id, name, content, order_index)
     SELECT evaluation_id, 'Módulo 3: Conhecimentos Gerais', 'Conteúdo sobre história, geografia e atualidades.', 3
-    WHERE NOT EXISTS (SELECT 1 FROM step_evaluation_modules WHERE evaluation_id = evaluation_id AND order_index = 3)
+    WHERE NOT EXISTS (SELECT 1 FROM step_evaluation_modules sem WHERE sem.evaluation_id = evaluation_id AND sem.order_index = 3)
     ON CONFLICT DO NOTHING;
   END IF;
 
