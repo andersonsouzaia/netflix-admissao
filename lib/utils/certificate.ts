@@ -1,14 +1,10 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import QRCode from 'qrcode'
-import { readFileSync } from 'fs'
-import { join } from 'path'
 import { Buffer } from 'buffer'
+import { A4_LANDSCAPE_WIDTH, A4_LANDSCAPE_HEIGHT } from './certificate-constants'
 
-// Dimensões A4 em paisagem (842 x 595 pixels a 72dpi)
-export const A4_LANDSCAPE_WIDTH = 842
-export const A4_LANDSCAPE_HEIGHT = 595
-export const MIN_BACKGROUND_WIDTH = 842
-export const MIN_BACKGROUND_HEIGHT = 595
+// Re-exportar constantes para compatibilidade
+export { A4_LANDSCAPE_WIDTH, A4_LANDSCAPE_HEIGHT, MIN_BACKGROUND_WIDTH, MIN_BACKGROUND_HEIGHT } from './certificate-constants'
 
 export interface CertificateData {
   studentName: string
@@ -43,18 +39,50 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Uin
         const arrayBuffer = await response.arrayBuffer()
         imageBytes = new Uint8Array(arrayBuffer)
       } else {
-        // Se for caminho local
-        let imagePath: string
-        if (data.backgroundImageUrl.startsWith('/uploads/')) {
-          // Arquivo em uploads
-          imagePath = join(process.cwd(), data.backgroundImageUrl)
-        } else if (data.backgroundImageUrl.startsWith('/')) {
-          // Arquivo em public
-          imagePath = join(process.cwd(), 'public', data.backgroundImageUrl)
-        } else {
-          imagePath = data.backgroundImageUrl
+        // Se for caminho local (apenas no servidor)
+        // Em produção (Vercel/Netlify), use URLs do Supabase Storage
+        // Caminhos locais não funcionam em ambientes serverless
+        try {
+          // Tentar carregar via fetch se for uma URL relativa
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
+                         process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` :
+                         process.env.DEPLOY_PRIME_URL ||
+                         'http://localhost:3000'
+          
+          const imageUrl = data.backgroundImageUrl.startsWith('/')
+            ? `${baseUrl}${data.backgroundImageUrl}`
+            : data.backgroundImageUrl
+          
+          const response = await fetch(imageUrl)
+          if (!response.ok) {
+            throw new Error('Failed to fetch image')
+          }
+          const arrayBuffer = await response.arrayBuffer()
+          imageBytes = new Uint8Array(arrayBuffer)
+        } catch (error) {
+          console.error('Error loading local image, trying dynamic import:', error)
+          // Fallback: tentar import dinâmico apenas no servidor
+          if (typeof window === 'undefined') {
+            try {
+              const fs = await import('fs')
+              const path = await import('path')
+              let imagePath: string
+              if (data.backgroundImageUrl.startsWith('/uploads/')) {
+                imagePath = path.join(process.cwd(), data.backgroundImageUrl)
+              } else if (data.backgroundImageUrl.startsWith('/')) {
+                imagePath = path.join(process.cwd(), 'public', data.backgroundImageUrl)
+              } else {
+                imagePath = data.backgroundImageUrl
+              }
+              imageBytes = fs.readFileSync(imagePath)
+            } catch (fsError) {
+              console.error('Error reading file from filesystem:', fsError)
+              throw new Error('Could not load background image')
+            }
+          } else {
+            throw new Error('Cannot load local files in browser environment')
+          }
         }
-        imageBytes = readFileSync(imagePath)
       }
 
       // Determinar tipo de imagem

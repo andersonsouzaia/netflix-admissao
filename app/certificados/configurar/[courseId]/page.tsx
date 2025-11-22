@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2, Upload, Save } from 'lucide-react'
-import { MIN_BACKGROUND_WIDTH, MIN_BACKGROUND_HEIGHT } from '@/lib/utils/certificate'
+import { MIN_BACKGROUND_WIDTH, MIN_BACKGROUND_HEIGHT } from '@/lib/utils/certificate-constants'
 
 interface CertificateConfig {
   id?: number

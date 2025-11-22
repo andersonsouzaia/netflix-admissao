@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
-import { MIN_BACKGROUND_WIDTH, MIN_BACKGROUND_HEIGHT } from '@/lib/utils/certificate'
+import { MIN_BACKGROUND_WIDTH, MIN_BACKGROUND_HEIGHT } from '@/lib/utils/certificate-constants'
 
 // Função para ler dimensões da imagem (fallback se sharp não estiver disponível)
 async function getImageDimensions(buffer: Buffer): Promise<{ width: number; height: number }> {
