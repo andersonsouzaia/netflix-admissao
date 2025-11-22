@@ -1,11 +1,8 @@
-'use client'
-
 import Link from 'next/link'
-import { Search, Bell, Settings, User, FileText, Award, Menu } from 'lucide-react'
+import { Search, Bell, Settings, User, FileText, Award } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ThemeSwitcher } from '@/components/theme-switcher'
-import { useState } from 'react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,22 +10,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from '@/components/ui/sheet'
 
 export function MembersHeader() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-background via-background/95 to-transparent backdrop-blur-sm border-b border-border/40">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-background via-background/95 to-transparent">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4 md:gap-8">
+          <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2">
               <div className="bg-primary p-2 rounded-lg">
                 <svg
@@ -88,73 +76,6 @@ export function MembersHeader() {
                 Certificados
               </Link>
             </nav>
-
-            {/* Menu Mobile */}
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden text-foreground">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-[300px] sm:w-[400px]">
-                <SheetHeader>
-                  <SheetTitle>Menu</SheetTitle>
-                </SheetHeader>
-                <nav className="flex flex-col gap-4 mt-8">
-                  <Link 
-                    href="/" 
-                    className="text-base font-medium text-foreground hover:text-primary transition-colors"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Início
-                  </Link>
-                  <Link 
-                    href="/series" 
-                    className="text-base font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Séries
-                  </Link>
-                  <Link 
-                    href="/turmas" 
-                    className="text-base font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Turmas
-                  </Link>
-                  <Link 
-                    href="/comunidades" 
-                    className="text-base font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Comunidades
-                  </Link>
-                  <Link 
-                    href="/admissao" 
-                    className="text-base font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-2"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <FileText className="h-4 w-4" />
-                    Admissões
-                  </Link>
-                  <Link 
-                    href="/progress" 
-                    className="text-base font-medium text-muted-foreground hover:text-foreground transition-colors"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Meu Progresso
-                  </Link>
-                  <Link 
-                    href="/certificados" 
-                    className="text-base font-medium text-primary hover:text-primary/80 transition-colors flex items-center gap-2"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <Award className="h-4 w-4" />
-                    Certificados
-                  </Link>
-                </nav>
-              </SheetContent>
-            </Sheet>
           </div>
 
           <div className="flex items-center gap-3">

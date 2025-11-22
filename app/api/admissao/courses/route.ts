@@ -23,14 +23,25 @@ export async function GET(request: NextRequest) {
     const { data: courses, error } = await query
 
     if (error) {
-      throw error
+      console.error('Supabase error fetching courses:', error)
+      return NextResponse.json(
+        { 
+          error: 'Failed to fetch courses',
+          details: error.message || 'Database error',
+          hint: 'Verifique se as políticas RLS estão configuradas e se há dados no banco'
+        },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json(courses || [])
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching courses:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch courses' },
+      { 
+        error: 'Failed to fetch courses',
+        details: error?.message || 'Unknown error'
+      },
       { status: 500 }
     )
   }
