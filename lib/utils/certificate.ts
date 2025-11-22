@@ -1,5 +1,6 @@
-// Este arquivo é apenas para uso no servidor (API routes)
-// Não deve ser importado em Client Components
+// Este arquivo é APENAS para uso server-side (APIs)
+// Para constantes usadas no cliente, importe de './certificate-constants'
+
 import 'server-only'
 
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -8,7 +9,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { Buffer } from 'buffer'
 
-// Re-exportar constantes do arquivo separado para compatibilidade
+// Re-exportar constantes (este arquivo é apenas server-side)
 export { A4_LANDSCAPE_WIDTH, A4_LANDSCAPE_HEIGHT, MIN_BACKGROUND_WIDTH, MIN_BACKGROUND_HEIGHT } from './certificate-constants'
 
 export interface CertificateData {

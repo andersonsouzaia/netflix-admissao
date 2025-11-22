@@ -1,5 +1,5 @@
-// Constantes que podem ser usadas tanto no cliente quanto no servidor
-// Separadas do certificate.ts para evitar importar módulos Node.js no cliente
+// Constantes do certificado que podem ser usadas no cliente
+// Separado de certificate.ts para evitar importar módulos Node.js no browser
 
 export const A4_LANDSCAPE_WIDTH = 842
 export const A4_LANDSCAPE_HEIGHT = 595

@@ -58,7 +58,7 @@ export async function GET(
     } else {
       // Caminho local (fallback para desenvolvimento)
       try {
-        const pdfPath = join(process.cwd(), certificate.pdf_path)
+    const pdfPath = join(process.cwd(), certificate.pdf_path)
         pdfBytes = readFileSync(pdfPath)
       } catch (fileError) {
         console.error('Error reading local PDF file:', fileError)
